@@ -14,7 +14,7 @@ func TestJWT(t *testing.T) {
 	t.Run("normal web token", func(t *testing.T) {
 		j := NewJWT("secret", 1*time.Hour)
 
-		token, err := j.GenerateToken("123")
+		token, err := j.GenerateTokenAndSetSubject("123")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -32,7 +32,7 @@ func TestJWT(t *testing.T) {
 	t.Run("expired token", func(t *testing.T) {
 		j := NewJWT("secret123", 1*time.Second)
 
-		token, err := j.GenerateToken("123")
+		token, err := j.GenerateTokenAndSetSubject("123")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -68,7 +68,7 @@ func TestJWTMiddleware(t *testing.T) {
 
 	t.Run("valid token", func(t *testing.T) {
 		// Generate a valid token
-		token, err := j.GenerateToken("test123")
+		token, err := j.GenerateTokenAndSetSubject("test123")
 		assert.NoError(t, err)
 
 		// Create request with valid token
@@ -106,7 +106,7 @@ func TestJWTMiddleware(t *testing.T) {
 	t.Run("expired token", func(t *testing.T) {
 		// Create a JWT with very short expiration
 		shortJWT := NewJWT("secret", 1*time.Millisecond)
-		token, err := shortJWT.GenerateToken("test123")
+		token, err := shortJWT.GenerateTokenAndSetSubject("test123")
 		assert.NoError(t, err)
 
 		// Wait for token to expire
