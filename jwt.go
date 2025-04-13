@@ -2,9 +2,11 @@ package gincup
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -41,8 +43,6 @@ func (j *JWT) GenerateToken(sub string) (string, error) {
 }
 
 func (j *JWT) ValidateTokenAndGetSubject(token string) (string, error) {
-	token = strings.TrimPrefix(token, "Bearer ")
-
 	t, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
 		return j.Secret, nil
 	})
@@ -60,4 +60,46 @@ func (j *JWT) ValidateTokenAndGetSubject(token string) (string, error) {
 
 	// get subject
 	return claims.GetSubject()
+}
+
+func (j *JWT) Middleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// get token from Authorization header
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "missing Authorization header"})
+			c.Abort()
+			return
+		}
+
+		// trim Bearer prefix
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		// no prefix was trimmed
+		if token == authHeader {
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid Authorization header format"})
+			c.Abort()
+			return
+		}
+
+		// validate token and get subject
+		subject, err := j.ValidateTokenAndGetSubject(token)
+		if err != nil {
+			var message string
+			switch {
+			case errors.Is(err, ErrJWTTokenExpired):
+				message = "token expired"
+			case errors.Is(err, ErrJWTInvalidToken):
+				message = "invalid token"
+			default:
+				message = "unauthorized"
+			}
+			c.JSON(http.StatusUnauthorized, gin.H{"message": message})
+			c.Abort()
+			return
+		}
+
+		// set subject to context
+		c.Set("subject", subject)
+		c.Next()
+	}
 }
