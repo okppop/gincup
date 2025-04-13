@@ -121,3 +121,16 @@ func (j *JWT) Middleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+/*
+GetSubjectFromGinContext gets the subject from the gin context.
+
+If the subject is not set, the function will return an empty string.
+*/
+func (j *JWT) GetSubjectFromGinContext(c *gin.Context) string {
+	subject, ok := c.Get("subject")
+	if !ok {
+		return ""
+	}
+	return subject.(string)
+}
