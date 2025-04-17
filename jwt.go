@@ -16,8 +16,8 @@ var (
 )
 
 type JWT struct {
-	Secret         []byte
-	ExpireDuration time.Duration
+	secret         []byte
+	expireDuration time.Duration
 }
 
 func NewJWT(secret string, expireDuration time.Duration) *JWT {
@@ -30,8 +30,8 @@ func NewJWT(secret string, expireDuration time.Duration) *JWT {
 	}
 
 	return &JWT{
-		Secret:         []byte(secret),
-		ExpireDuration: expireDuration,
+		secret:         []byte(secret),
+		expireDuration: expireDuration,
 	}
 }
 
@@ -40,11 +40,11 @@ GenerateTokenAndSetSubject generates a JWT token and sets the subject to the tok
 
 The token will expire after the expire duration.
 */
-func (j *JWT) GenerateTokenAndSetSubject(sub string) (string, error) {
+func (j *JWT) GenerateTokenAndSetSubject(sub interface{}) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": sub,
-		"exp": jwt.NewNumericDate(time.Now().Add(j.ExpireDuration)),
-	}).SignedString(j.Secret)
+		"exp": jwt.NewNumericDate(time.Now().Add(j.expireDuration)),
+	}).SignedString(j.secret)
 }
 
 /*
@@ -54,7 +54,7 @@ If the token is invalid or expired, the function will return an error.
 */
 func (j *JWT) ValidateTokenAndGetSubject(token string) (string, error) {
 	t, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
-		return j.Secret, nil
+		return j.secret, nil
 	})
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
