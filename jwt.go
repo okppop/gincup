@@ -20,6 +20,10 @@ type JWT struct {
 	expireDuration time.Duration
 }
 
+// NewJWT creates a new JWT instance.
+//
+// If the secret is empty, panic.
+// If the expire duration is less than or equal to 0, panic.
 func NewJWT(secret string, expireDuration time.Duration) *JWT {
 	if secret == "" {
 		panic("secret is required")
@@ -35,11 +39,18 @@ func NewJWT(secret string, expireDuration time.Duration) *JWT {
 	}
 }
 
-/*
-GenerateTokenAndSetSubject generates a JWT token and sets the subject to the token.
+// GenerateToken generates a JWT token.
+//
+// The token will expire after the expire duration.
+func (j *JWT) GenerateToken() (string, error) {
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"exp": jwt.NewNumericDate(time.Now().Add(j.expireDuration)),
+	}).SignedString(j.secret)
+}
 
-The token will expire after the expire duration.
-*/
+// GenerateTokenAndSetSubject generates a JWT token and sets the subject to the token.
+//
+// The token will expire after the expire duration.
 func (j *JWT) GenerateTokenAndSetSubject(sub interface{}) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": sub,
@@ -47,11 +58,26 @@ func (j *JWT) GenerateTokenAndSetSubject(sub interface{}) (string, error) {
 	}).SignedString(j.secret)
 }
 
-/*
-validateTokenAndGetSubject validates a JWT token and returns the subject.
+// validateToken validates a JWT token.
+//
+// If the token is invalid or expired, the function will return an error.
+func (j *JWT) validateToken(token string) error {
+	_, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
+		return j.secret, nil
+	})
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return ErrJWTTokenExpired
+		}
+		return ErrJWTInvalidToken
+	}
 
-If the token is invalid or expired, the function will return an error.
-*/
+	return nil
+}
+
+// validateTokenAndGetSubject validates a JWT token and returns the subject.
+//
+// If the token is invalid or expired, the function will return an error.
 func (j *JWT) validateTokenAndGetSubject(token string) (string, error) {
 	t, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
 		return j.secret, nil
@@ -72,20 +98,63 @@ func (j *JWT) validateTokenAndGetSubject(token string) (string, error) {
 	return claims.GetSubject()
 }
 
-/*
-Middleware is a middleware that validates a JWT token and
-sets the subject to the context.
-
-The Authorization header must be in the format "Bearer <token>".
-If the token is invalid or expired, the middleware will return a 401 Unauthorized status.
-If the token is valid, the subject will be set to the context.
-*/
+// Middleware is a middleware that validates a JWT token.
+//
+// The Authorization header must be in the format "Bearer <token>".
+//
+// If the token is invalid or expired, the middleware will return a 401 Unauthorized status.
 func (j *JWT) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// get token from Authorization header
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"message": "missing Authorization header"})
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid Authorization header format"})
+			c.Abort()
+			return
+		}
+
+		// trim Bearer prefix
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		// no prefix was trimmed
+		if token == authHeader {
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid Authorization header format"})
+			c.Abort()
+			return
+		}
+
+		// validate token
+		err := j.validateToken(token)
+		if err != nil {
+			var message string
+			switch {
+			case errors.Is(err, ErrJWTTokenExpired):
+				message = "token expired"
+			case errors.Is(err, ErrJWTInvalidToken):
+				message = "invalid token"
+			default:
+				message = "unauthorized"
+			}
+			c.JSON(http.StatusUnauthorized, gin.H{"message": message})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// MiddlewareWithSubject is a middleware that validates a JWT token and
+// sets the subject to the context.
+//
+// The Authorization header must be in the format "Bearer <token>".
+//
+// If the token is invalid or expired, the middleware will return a 401 Unauthorized status.
+//
+// If the token is valid, the subject will be set to the context.
+func (j *JWT) MiddlewareWithSubject() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid Authorization header format"})
 			c.Abort()
 			return
 		}
@@ -122,11 +191,9 @@ func (j *JWT) Middleware() gin.HandlerFunc {
 	}
 }
 
-/*
-GetSubjectFromGinContext gets the subject from the gin context.
-
-If the subject is not set, the function will return an empty string.
-*/
+// GetSubjectFromGinContext gets the subject from the gin context.
+//
+// If the subject is not set, the function will return an empty string.
 func (j *JWT) GetSubjectFromGinContext(c *gin.Context) string {
 	subject, ok := c.Get("subject")
 	if !ok {
