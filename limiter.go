@@ -10,13 +10,12 @@ import (
 //
 // If the number of requests exceeds the limit, the middleware will return a 429 Too Many Requests status.
 func LimitMiddleware(limit uint64) gin.HandlerFunc {
+	ch := make(chan struct{}, limit)
 	return func(c *gin.Context) {
-		ch := make(chan struct{}, limit)
-
 		select {
 		case ch <- struct{}{}:
+			defer func() { <-ch }()
 			c.Next()
-			<-ch
 		default:
 			c.AbortWithStatus(http.StatusTooManyRequests)
 		}
