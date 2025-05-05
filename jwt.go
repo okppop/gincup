@@ -48,11 +48,11 @@ func (j *JWT) GenerateTokenAndSetSubject(sub interface{}) (string, error) {
 }
 
 /*
-ValidateTokenAndGetSubject validates a JWT token and returns the subject.
+validateTokenAndGetSubject validates a JWT token and returns the subject.
 
 If the token is invalid or expired, the function will return an error.
 */
-func (j *JWT) ValidateTokenAndGetSubject(token string) (string, error) {
+func (j *JWT) validateTokenAndGetSubject(token string) (string, error) {
 	t, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
 		return j.secret, nil
 	})
@@ -100,7 +100,7 @@ func (j *JWT) Middleware() gin.HandlerFunc {
 		}
 
 		// validate token and get subject
-		subject, err := j.ValidateTokenAndGetSubject(token)
+		subject, err := j.validateTokenAndGetSubject(token)
 		if err != nil {
 			var message string
 			switch {

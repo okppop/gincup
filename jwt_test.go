@@ -19,7 +19,7 @@ func TestJWT(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		sub, err := j.ValidateTokenAndGetSubject(token)
+		sub, err := j.validateTokenAndGetSubject(token)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -39,7 +39,7 @@ func TestJWT(t *testing.T) {
 
 		time.Sleep(2 * time.Second)
 
-		_, err = j.ValidateTokenAndGetSubject(token)
+		_, err = j.validateTokenAndGetSubject(token)
 		if err != ErrJWTTokenExpired {
 			t.Fatal("err is not ErrJWTTokenExpired")
 		}
@@ -48,7 +48,7 @@ func TestJWT(t *testing.T) {
 	t.Run("invalid token", func(t *testing.T) {
 		j := NewJWT("secret123", 1*time.Hour)
 
-		_, err := j.ValidateTokenAndGetSubject("sdasdasdasdasd13414")
+		_, err := j.validateTokenAndGetSubject("sdasdasdasdasd13414")
 		if err != ErrJWTInvalidToken {
 			t.Fatal("err is not ErrJWTInvalidToken")
 		}
