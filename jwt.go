@@ -51,7 +51,7 @@ func (j *JWT) GenerateToken() (string, error) {
 // GenerateTokenAndSetSubject generates a JWT token and sets the subject to the token.
 //
 // The token will expire after the expire duration.
-func (j *JWT) GenerateTokenAndSetSubject(sub interface{}) (string, error) {
+func (j *JWT) GenerateTokenAndSetSubject(sub string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": sub,
 		"exp": jwt.NewNumericDate(time.Now().Add(j.expireDuration)),
